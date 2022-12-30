@@ -20,5 +20,3 @@ cd projects
 for prj in ${projects[@]}; do
     git clone ${repository_domain}${prj}
 done
-
-# git submodule add https://github.com/Syracusa/bbb-dd-examples ./projects/bbb-dd-examples
