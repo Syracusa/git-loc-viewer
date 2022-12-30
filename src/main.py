@@ -6,7 +6,7 @@ DO_VERBOSE = 0
 
 # Exclude some directories and files by their name
 exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments'])
-exclude_files =  set(['karma.conf.js', 'MainForm.Designer.cs'])
+exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs'])
 
 # File extensions to count
 extensions = ('.c', '.h', '.cpp', '.ts', '.js', '.html', '.py', '.sh', '.rs', '.md', '.cs')
@@ -21,7 +21,13 @@ def make_data_information():
     lf = lgd + "datainfo.json"
     if os.path.exists(lf):
         os.remove(lf)
-    info['files'] = [d for d in os.listdir(lgd) if os.path.isfile(os.path.join(lgd, d))]
+        
+    info['files'] = []
+    for d in os.listdir(lgd):
+        if os.path.isfile(os.path.join(lgd, d)):
+            if get_file_extension(d) == '.json':
+                info['files'].append(d)
+
     info['files'].sort()
     info['extensions'] = extensions
     

@@ -14,9 +14,11 @@ projects+=("sy-rust-boilerplate")
 projects+=("my-openssl-examples")
 projects+=("time-wheel")
 projects+=("CodingTest")
+projects+=("git-loc-viewer")
 
+cd projects
 for prj in ${projects[@]}; do
-    git submodule add ${repository_domain}${prj} ./projects/${prj}
+    git clone ${repository_domain}${prj}
 done
 
 # git submodule add https://github.com/Syracusa/bbb-dd-examples ./projects/bbb-dd-examples
