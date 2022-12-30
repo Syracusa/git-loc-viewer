@@ -1,4 +1,4 @@
-# LOC-Counter
+# GIT LOC Viewer
 Count line of code in your git repositories.
 
 # How to use
