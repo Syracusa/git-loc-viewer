@@ -16,6 +16,12 @@ interface LocDataWithTime {
   locDatum: Map<string, RepoLocDatum>;
 }
 
+interface GraphElem {
+  graph: any;
+  xaxis: any;
+  yaxis: any;
+}
+
 @Component({
   selector: 'app-root',
   templateUrl: './app.component.html',
@@ -34,6 +40,9 @@ export class AppComponent {
   parsedFileNum = 0;
   dataMetaInfo: any;
 
+  g1: GraphElem = { graph: undefined, xaxis: undefined, yaxis: undefined };
+  g2: GraphElem = { graph: undefined, xaxis: undefined, yaxis: undefined };
+
   ngOnInit(): void {
     let file: Observable<any> = this.http.get('../assets/datainfo.json');
     file.subscribe(data => {
@@ -47,17 +56,17 @@ export class AppComponent {
 
   onOptionSelected(event: MatSelectChange) {
     console.log(event.value);
-    this.drawRepoGraph(event.value as string);
+    this.drawRepoGraph(event.value as string, 600, 300);
   }
 
-  cbDataRecvDone(ctx: AppComponent):void {
-    ctx.locData.sort(function (a, b) {return a.date.unix() - b.date.unix();});
+  cbDataRecvDone(ctx: AppComponent): void {
+    ctx.locData.sort(function (a, b) { return a.date.unix() - b.date.unix(); });
     console.log("locdata", ctx.locData);
     ctx.buildRepoSet();
-    ctx.drawRepoGraph('All');
+    ctx.drawRepoGraph('All', 600, 300);
   }
 
-  getDataFromJSON(cb: (ctx: AppComponent)=>void ): void {
+  getDataFromJSON(cb: (ctx: AppComponent) => void): void {
     for (let i = 0; i < this.dataFileNum; i++) {
 
       let dataFileName = this.dataMetaInfo['files'][i];
@@ -94,37 +103,45 @@ export class AppComponent {
       console.log("reposet", this.repoSet);
   }
 
-  drawRepoGraph(repoName: string): void {
+  drawRepoGraph(repoName: string, width: number, height: number): void {
     let repoData: any[] = [];
     for (let i = 0; i < this.locData.length; i++) {
       let repoDatum = this.locData[i].locDatum.get(repoName);
-      if (repoDatum === undefined) {
-        repoDatum = {};
-      }
-      repoDatum['date'] = this.locData[i].date;
-
-      /* Check missing data */
-      for (let eidx = 0; eidx < this.dataMetaInfo['extensions'].length; eidx++) {
-        let ext = this.dataMetaInfo['extensions'][eidx];
-        if (!(ext in repoDatum)) {
-          repoDatum[ext] = 0;
+      if (repoDatum !== undefined) {
+        repoDatum['date'] = this.locData[i].date;
+        /* Check missing data */
+        for (let eidx = 0; eidx < this.dataMetaInfo['extensions'].length; eidx++) {
+          let ext = this.dataMetaInfo['extensions'][eidx];
+          if (!(ext in repoDatum)) {
+            repoDatum[ext] = 0;
+          }
         }
+
+
+        repoData.push(repoDatum);
       }
 
-      repoData.push(repoDatum);
+
 
     }
-    this.drawGraph("#chart1", repoData, "area", this.dataMetaInfo['extensions']);
-    this.drawGraph("#chart2", repoData, "bar", this.dataMetaInfo['extensions']);
+    this.drawGraph(this.g1, "#chart1", repoData, "area", this.dataMetaInfo['extensions'], width, height);
+    this.drawGraph(this.g2, "#chart2", repoData, "bar", this.dataMetaInfo['extensions'], width, height);
   }
 
-  drawGraph(selector: string, data: any[], kind: string, keys: string[]): void {
+  drawGraph(g: GraphElem,
+    selector: string,
+    data: any[],
+    kind: string,
+    keys: string[],
+    width: number,
+    height: number)
+    : void {
     /* Stack Data Generator */
     var stackGen = d3.stack().keys(keys);
 
     /* Generate Data */
     var stackedSeries = stackGen(data);
-    let datearr = data.map(function(d) {return d['date']});
+    let datearr = data.map(function (d) { return d['date'] });
 
     console.log("stackedSeries", stackedSeries);
     console.log(datearr);
@@ -145,11 +162,11 @@ export class AppComponent {
     /* Scale */
     var xScale = d3.scaleTime()
       .domain([minDate, maxDate])
-      .range([50, 600]);
+      .range([50, width - 50]);
 
     var yScale = d3.scaleLinear()
       .domain([0, ymax])
-      .range([450, 50])
+      .range([height - 50, 50])
       .nice();
 
     /* Graph */
@@ -160,7 +177,7 @@ export class AppComponent {
     }
 
     /* Axes */
-    this.drawAxes(selector, xScale, yScale);
+    this.drawAxes(g, selector, xScale, yScale, width, height);
   }
 
   drawBarChart(
@@ -210,7 +227,7 @@ export class AppComponent {
     for (let i = 0; i < stackdata.length; i++) {
       let mydata: Array<[number, number]> = [];
       for (let j = 0; j < stackdata[i].length; j++) {
-        mydata.push([stackdata[i][j][0], stackdata[i][j][1] ]);
+        mydata.push([stackdata[i][j][0], stackdata[i][j][1]]);
       }
       newdata.push(mydata);
     }
@@ -225,7 +242,7 @@ export class AppComponent {
 
     let newdata = this.buildAreaData(stackdata);
     var colors = d3.schemePaired;
-    let datearr = stackdata[0].map(function(d) {return d['data']['date']});
+    let datearr = stackdata[0].map(function (d) { return d['data']['date'] });
 
     var areaGen = d3.area()
       .x((d, i) => xScale(datearr[i]))
@@ -241,23 +258,34 @@ export class AppComponent {
   }
 
   private drawAxes(
+    g: GraphElem,
     selector: string,
     xScale: d3.ScaleTime<number, number, never>,
-    yScale: d3.ScaleLinear<number, number, never>)
+    yScale: d3.ScaleLinear<number, number, never>,
+    width: number,
+    height: number)
     : void {
 
     /* Draw Axes */
     let xAxis = d3.axisBottom(xScale);
     let yAxis = d3.axisRight(yScale);
 
-    d3.select(selector)
-      .append("g")
-      .call(xAxis)
-      .attr("transform", "translate(" + 0 + ", " + 450 + ")");
-
-    d3.select(selector)
-      .append("g")
-      .call(yAxis)
-      .attr("transform", "translate(" + 600 + ", " + 0 + ")");
+    if (g.xaxis == undefined) {
+      console.log("xappend");
+      g.xaxis = d3.select(selector)
+        .append("g")
+        .call(xAxis)
+        .attr("transform", "translate(" + 0 + ", " + (height - 50) + ")");
+    } else {
+      g.xaxis.call(xAxis);
+    }
+    if (g.yaxis == undefined) {
+      g.yaxis = d3.select(selector)
+        .append("g")
+        .call(yAxis)
+        .attr("transform", "translate(" + (width - 50) + ", " + 0 + ")");
+    } else {
+      g.yaxis.call(yAxis);
+    }
   }
 }
