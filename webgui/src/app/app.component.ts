@@ -1,11 +1,20 @@
 import { Component } from '@angular/core';
 import * as d3 from 'd3';
-import moment from 'moment'
-
-import DataInfo from '../assets/datainfo.json';
+import moment from 'moment';
 
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+
+/* One repoinfo in file */
+interface RepoLocDatum {
+  [ext: string]: number;
+}
+
+/* One data file */
+interface LocDataWithTime {
+  date: string;
+  locDatum: Map<string, RepoLocDatum>;
+}
 
 @Component({
   selector: 'app-root',
@@ -14,58 +23,100 @@ import { Observable } from 'rxjs';
 })
 export class AppComponent {
   title = 'LOC-counter';
-
-  asMoment: moment.Moment[] = [];
-  datasize: number = 0;
-  readDone: number = 0;
   VERBOSE = 0;
 
-  drawRepoGraph(repoName: string): void {
-    this.datasize = DataInfo['files'].length
-    let accuData: any[] = [];
+  asMoment: moment.Moment[] = [];
+  dataFileNum: number = 0;
+  readDone: number = 0;
+  repoSet = new Set<string>;
+  locData: LocDataWithTime[] = [];
+  parsedFileNum = 0;
+  dataMetaInfo: any;
 
-    for (let i = 0; i < this.datasize; i++) {
-      let file: Observable<any> = this.http.get('assets/' + DataInfo['files'][i]);
+  ngOnInit(): void {
+    let file: Observable<any> = this.http.get('../assets/datainfo.json');
+    file.subscribe(data => {
+      this.dataMetaInfo = data;
+      this.dataFileNum = data['files'].length;
+      this.getDataFromJSON(this.cbDataRecvDone);
+    });
+  }
+
+  cbDataRecvDone(ctx: AppComponent):void {
+    console.log("Datafile read done!");
+    console.log(ctx.locData);
+    ctx.buildRepoSet();
+    ctx.drawRepoGraph('All');
+  }
+
+  getDataFromJSON(cb: (ctx: AppComponent)=>void ): void {
+    for (let i = 0; i < this.dataFileNum; i++) {
+
+      let dataFileName = this.dataMetaInfo['files'][i];
+      let dataFileNameWithDir = 'assets/' + dataFileName;
+
+      let file: Observable<any> = this.http.get(dataFileNameWithDir);
       file.subscribe(data => {
-
-        if (this.VERBOSE) {
-          console.log(DataInfo['files'][i].split('.')[0])
-          console.log(data);
+        let locDatum = new Map<string, RepoLocDatum>;
+        for (const [k, v] of Object.entries(data)) {
+          locDatum.set(k, v as RepoLocDatum);
         }
+        let datum: LocDataWithTime = {
+          date: dataFileName.split('.')[0],
+          locDatum: locDatum
+        };
 
-        /* Check missing repo data */
-        if (!(repoName in data)){
-          data[repoName] = {};
-        }
-
-        accuData.push(data[repoName]);
-
-        /* Check missing data */
-        for (let eidx = 0; eidx < DataInfo['extensions'].length; eidx++) {
-          let ext = DataInfo['extensions'][eidx];
-          if (!(ext in data[repoName])) {
-            data[repoName][ext] = 0;
-          }
-        }
-
-        this.asMoment.push(moment(DataInfo['files'][i].split('.')[0]));
-        this.readDone += 1;
-
-        if (this.readDone == this.datasize) {
-          console.log(this.asMoment);
-          this.drawGraph("#chart1", accuData, "area", DataInfo['extensions']);
-          this.drawGraph("#chart2", accuData, "bar", DataInfo['extensions']);
+        this.locData.push(datum);
+        this.parsedFileNum++;
+        if (this.parsedFileNum == this.dataFileNum) {
+          cb(this);
         }
       });
     }
   }
 
-
-  ngOnInit(): void {
+  buildRepoSet(): void {
+    for (let i = 0; i < this.locData.length; i++) {
+      let locDatum = this.locData[i].locDatum;
+      locDatum.forEach((v, k) => {
+        this.repoSet.add(k);
+      });
+    }
     if (this.VERBOSE)
-      console.log(DataInfo);
+      console.log(this.repoSet);
+  }
 
-    this.drawRepoGraph('sy-msg-window');
+  drawRepoGraph(repoName: string): void {
+    let repoData: any[] = [];
+    for (let i = 0; i < this.locData.length; i++) {
+      if (this.VERBOSE) {
+        console.log(this.locData[i].date);
+        console.log(this.locData[i].locDatum);
+      }
+
+      let repoDatum = this.locData[i].locDatum.get(repoName);
+      if (repoDatum === undefined) {
+        repoDatum = {};
+      }
+
+      /* Check missing data */
+      for (let eidx = 0; eidx < this.dataMetaInfo['extensions'].length; eidx++) {
+        let ext = this.dataMetaInfo['extensions'][eidx];
+        if (!(ext in repoDatum)) {
+          repoDatum[ext] = 0;
+        }
+      }
+
+      repoData.push(repoDatum);
+
+      this.asMoment.push(moment(this.dataMetaInfo['files'][i].split('.')[0]));
+      this.readDone += 1;
+      if (this.readDone == this.dataFileNum) {
+        console.log(this.asMoment);
+        this.drawGraph("#chart1", repoData, "area", this.dataMetaInfo['extensions']);
+        this.drawGraph("#chart2", repoData, "bar", this.dataMetaInfo['extensions']);
+      }
+    }
   }
 
   constructor(private http: HttpClient) { }
@@ -202,7 +253,6 @@ export class AppComponent {
       .range([50, 600]);
 
     var yScale = d3.scaleLinear()
-      // .domain([0, 20000])
       .domain([0, 20000])
       .range([450, 50])
       .nice();
@@ -216,7 +266,5 @@ export class AppComponent {
 
     /* Axes */
     this.drawAxes(selector, xScale, yScale);
-
   }
-
 }
