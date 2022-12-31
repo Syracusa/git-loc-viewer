@@ -7,12 +7,12 @@ import { Observable } from 'rxjs';
 
 /* One repoinfo in file */
 interface RepoLocDatum {
-  [ext: string]: number;
+  [ext: string]: number | moment.Moment;
 }
 
 /* One data file */
 interface LocDataWithTime {
-  date: string;
+  date: moment.Moment;
   locDatum: Map<string, RepoLocDatum>;
 }
 
@@ -25,7 +25,6 @@ export class AppComponent {
   title = 'LOC-counter';
   VERBOSE = 0;
 
-  asMoment: moment.Moment[] = [];
   dataFileNum: number = 0;
   readDone: number = 0;
   repoSet = new Set<string>;
@@ -42,7 +41,10 @@ export class AppComponent {
     });
   }
 
+  constructor(private http: HttpClient) { }
+
   cbDataRecvDone(ctx: AppComponent):void {
+    ctx.locData.sort(function (a, b) {return a.date.unix() - b.date.unix();});
     console.log("Datafile read done!");
     console.log(ctx.locData);
     ctx.buildRepoSet();
@@ -62,7 +64,7 @@ export class AppComponent {
           locDatum.set(k, v as RepoLocDatum);
         }
         let datum: LocDataWithTime = {
-          date: dataFileName.split('.')[0],
+          date: moment(dataFileName.split('.')[0]),
           locDatum: locDatum
         };
 
@@ -98,6 +100,7 @@ export class AppComponent {
       if (repoDatum === undefined) {
         repoDatum = {};
       }
+      repoDatum['date'] = this.locData[i].date;
 
       /* Check missing data */
       for (let eidx = 0; eidx < this.dataMetaInfo['extensions'].length; eidx++) {
@@ -109,17 +112,54 @@ export class AppComponent {
 
       repoData.push(repoDatum);
 
-      this.asMoment.push(moment(this.dataMetaInfo['files'][i].split('.')[0]));
+      // this.asMoment.push(moment(this.dataMetaInfo['files'][i].split('.')[0]));
       this.readDone += 1;
       if (this.readDone == this.dataFileNum) {
-        console.log(this.asMoment);
+        // console.log(this.asMoment);
         this.drawGraph("#chart1", repoData, "area", this.dataMetaInfo['extensions']);
         this.drawGraph("#chart2", repoData, "bar", this.dataMetaInfo['extensions']);
       }
     }
   }
 
-  constructor(private http: HttpClient) { }
+  drawGraph(selector: string, data: any[], kind: string, keys: string[]): void {
+    /* Stack Data Generator */
+    var stackGen = d3.stack().keys(keys);
+
+    /* Generate Data */
+    var stackedSeries = stackGen(data);
+    let datearr = data.map(function(d) {return d['date']});
+
+    console.log(datearr);
+
+    let maxDate = moment.max(datearr).clone();
+    let minDate = moment.min(datearr).clone();
+
+    if (kind == "bar") {
+      minDate.add(-6, 'hours');
+      maxDate.add(6, 'hours');
+    }
+
+    /* Scale */
+    var xScale = d3.scaleTime()
+      .domain([minDate, maxDate])
+      .range([50, 600]);
+
+    var yScale = d3.scaleLinear()
+      .domain([0, 20000])
+      .range([450, 50])
+      .nice();
+
+    /* Graph */
+    if (kind == "bar") {
+      this.drawBarChart(selector, stackedSeries, xScale, yScale);
+    } else {
+      this.drawAreaChart(selector, stackedSeries, xScale, yScale);
+    }
+
+    /* Axes */
+    this.drawAxes(selector, xScale, yScale);
+  }
 
   drawBarChart(
     selector: string,
@@ -147,7 +187,7 @@ export class AppComponent {
       })
       .join('rect')
       .attr("x", (d, i) => {
-        return xScale(this.asMoment[i]) - (barWidth / 2);
+        return xScale(d.data['date']) - (barWidth / 2);
       })
       .attr("y", function (d, i) {
         return yScale(d[1]);
@@ -168,7 +208,7 @@ export class AppComponent {
     for (let i = 0; i < stackdata.length; i++) {
       let mydata: Array<[number, number]> = [];
       for (let j = 0; j < stackdata[i].length; j++) {
-        mydata.push([stackdata[i][j][0], stackdata[i][j][1]]);
+        mydata.push([stackdata[i][j][0], stackdata[i][j][1] ]);
       }
       newdata.push(mydata);
     }
@@ -183,9 +223,10 @@ export class AppComponent {
 
     let newdata = this.buildAreaData(stackdata);
     var colors = d3.schemePaired;
+    let datearr = stackdata[0].map(function(d) {return d['data']['date']});
 
     var areaGen = d3.area()
-      .x((d, i) => xScale(this.asMoment[i]))
+      .x((d, i) => xScale(datearr[i]))
       .y0((d, i) => yScale(d[0]))
       .y1((d, i) => yScale(d[1]));
 
@@ -204,18 +245,7 @@ export class AppComponent {
     : void {
 
     /* Draw Axes */
-    let useCustomFmt = 0;
-    let xAxis;
-    if (!useCustomFmt) {
-      xAxis = d3.axisBottom(xScale);
-    } else {
-      xAxis = d3.axisBottom(xScale).ticks(5)
-        .tickFormat((d, i) => {
-          console.log('format');
-          return this.asMoment[i].format('YY-MM-DD');
-        });
-    }
-
+    let xAxis = d3.axisBottom(xScale);
     let yAxis = d3.axisRight(yScale);
 
     d3.select(selector)
@@ -227,44 +257,5 @@ export class AppComponent {
       .append("g")
       .call(yAxis)
       .attr("transform", "translate(" + 600 + ", " + 0 + ")");
-
-  }
-
-  drawGraph(selector: string, data: any[], kind: string, keys: string[]): void {
-    /* Stack Data Generator */
-    var stackGen = d3.stack().keys(keys);
-
-    /* Generate Data */
-    var stackedSeries = stackGen(data);
-
-    console.log(stackedSeries);
-
-    let maxDate = moment.max(this.asMoment).clone();
-    let minDate = moment.min(this.asMoment).clone();
-
-    if (kind == "bar") {
-      minDate.add(-6, 'hours');
-      maxDate.add(6, 'hours');
-    }
-
-    /* Scale */
-    var xScale = d3.scaleTime()
-      .domain([minDate, maxDate])
-      .range([50, 600]);
-
-    var yScale = d3.scaleLinear()
-      .domain([0, 20000])
-      .range([450, 50])
-      .nice();
-
-    /* Graph */
-    if (kind == "bar") {
-      this.drawBarChart(selector, stackedSeries, xScale, yScale);
-    } else {
-      this.drawAreaChart(selector, stackedSeries, xScale, yScale);
-    }
-
-    /* Axes */
-    this.drawAxes(selector, xScale, yScale);
   }
 }
