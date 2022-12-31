@@ -20,13 +20,10 @@ export class AppComponent {
   readDone: number = 0;
   VERBOSE = 0;
 
-  ngOnInit(): void {
-    if (this.VERBOSE)
-      console.log(DataInfo);
-
+  drawRepoGraph(repoName: string): void {
     this.datasize = DataInfo['files'].length
     let accuData: any[] = [];
-    
+
     for (let i = 0; i < this.datasize; i++) {
       let file: Observable<any> = this.http.get('assets/' + DataInfo['files'][i]);
       file.subscribe(data => {
@@ -36,13 +33,18 @@ export class AppComponent {
           console.log(data);
         }
 
-        accuData.push(data['All']);
+        /* Check missing repo data */
+        if (!(repoName in data)){
+          data[repoName] = {};
+        }
+
+        accuData.push(data[repoName]);
 
         /* Check missing data */
         for (let eidx = 0; eidx < DataInfo['extensions'].length; eidx++) {
           let ext = DataInfo['extensions'][eidx];
-          if (!(ext in data['All'])) {
-            data['All'][ext] = 0;
+          if (!(ext in data[repoName])) {
+            data[repoName][ext] = 0;
           }
         }
 
@@ -51,11 +53,19 @@ export class AppComponent {
 
         if (this.readDone == this.datasize) {
           console.log(this.asMoment);
-          this.drawGraph("#chart1", accuData, "area",  DataInfo['extensions']);
+          this.drawGraph("#chart1", accuData, "area", DataInfo['extensions']);
           this.drawGraph("#chart2", accuData, "bar", DataInfo['extensions']);
         }
       });
     }
+  }
+
+
+  ngOnInit(): void {
+    if (this.VERBOSE)
+      console.log(DataInfo);
+
+    this.drawRepoGraph('sy-msg-window');
   }
 
   constructor(private http: HttpClient) { }
@@ -122,7 +132,7 @@ export class AppComponent {
 
     let newdata = this.buildAreaData(stackdata);
     var colors = d3.schemePaired;
-    
+
     var areaGen = d3.area()
       .x((d, i) => xScale(this.asMoment[i]))
       .y0((d, i) => yScale(d[0]))
@@ -169,7 +179,7 @@ export class AppComponent {
 
   }
 
-  drawGraph(selector: string, data:any[], kind: string, keys: string[]): void {
+  drawGraph(selector: string, data: any[], kind: string, keys: string[]): void {
     /* Stack Data Generator */
     var stackGen = d3.stack().keys(keys);
 
