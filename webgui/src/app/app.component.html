@@ -4,6 +4,15 @@
   </mat-toolbar-row>
 </mat-toolbar>
 
+<mat-form-field appearance="fill">
+  <mat-label>Repository name</mat-label>
+  <mat-select [(ngModel)]="selectedRepo" name="repo" (selectionChange)="onOptionSelected($event)">
+    <mat-option *ngFor="let repo of repoSet" [value]="repo">
+      {{repo}}
+    </mat-option>
+  </mat-select>
+</mat-form-field>
+
 <svg width="760" height="600">
   <g id = "chart1"></g>
 </svg>

@@ -4,7 +4,7 @@ import moment from 'moment';
 
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-
+import { MatSelectChange } from '@angular/material/select';
 /* One repoinfo in file */
 interface RepoLocDatum {
   [ext: string]: number | moment.Moment;
@@ -23,10 +23,12 @@ interface LocDataWithTime {
 })
 export class AppComponent {
   title = 'LOC-counter';
-  VERBOSE = 0;
+  VERBOSE = 1;
+
+  selectedRepo: string = "All";
 
   dataFileNum: number = 0;
-  readDone: number = 0;
+
   repoSet = new Set<string>;
   locData: LocDataWithTime[] = [];
   parsedFileNum = 0;
@@ -43,10 +45,14 @@ export class AppComponent {
 
   constructor(private http: HttpClient) { }
 
+  onOptionSelected(event: MatSelectChange) {
+    console.log(event.value);
+    this.drawRepoGraph(event.value as string);
+  }
+
   cbDataRecvDone(ctx: AppComponent):void {
     ctx.locData.sort(function (a, b) {return a.date.unix() - b.date.unix();});
-    console.log("Datafile read done!");
-    console.log(ctx.locData);
+    console.log("locdata", ctx.locData);
     ctx.buildRepoSet();
     ctx.drawRepoGraph('All');
   }
@@ -85,17 +91,12 @@ export class AppComponent {
       });
     }
     if (this.VERBOSE)
-      console.log(this.repoSet);
+      console.log("reposet", this.repoSet);
   }
 
   drawRepoGraph(repoName: string): void {
     let repoData: any[] = [];
     for (let i = 0; i < this.locData.length; i++) {
-      if (this.VERBOSE) {
-        console.log(this.locData[i].date);
-        console.log(this.locData[i].locDatum);
-      }
-
       let repoDatum = this.locData[i].locDatum.get(repoName);
       if (repoDatum === undefined) {
         repoDatum = {};
@@ -112,14 +113,9 @@ export class AppComponent {
 
       repoData.push(repoDatum);
 
-      // this.asMoment.push(moment(this.dataMetaInfo['files'][i].split('.')[0]));
-      this.readDone += 1;
-      if (this.readDone == this.dataFileNum) {
-        // console.log(this.asMoment);
-        this.drawGraph("#chart1", repoData, "area", this.dataMetaInfo['extensions']);
-        this.drawGraph("#chart2", repoData, "bar", this.dataMetaInfo['extensions']);
-      }
     }
+    this.drawGraph("#chart1", repoData, "area", this.dataMetaInfo['extensions']);
+    this.drawGraph("#chart2", repoData, "bar", this.dataMetaInfo['extensions']);
   }
 
   drawGraph(selector: string, data: any[], kind: string, keys: string[]): void {
@@ -130,7 +126,13 @@ export class AppComponent {
     var stackedSeries = stackGen(data);
     let datearr = data.map(function(d) {return d['date']});
 
+    console.log("stackedSeries", stackedSeries);
     console.log(datearr);
+
+
+    let datalen = stackedSeries.length;
+    let datumlen = stackedSeries[0].length;
+    let ymax = stackedSeries[datalen - 1][datumlen - 1][1];
 
     let maxDate = moment.max(datearr).clone();
     let minDate = moment.min(datearr).clone();
@@ -146,7 +148,7 @@ export class AppComponent {
       .range([50, 600]);
 
     var yScale = d3.scaleLinear()
-      .domain([0, 20000])
+      .domain([0, ymax])
       .range([450, 50])
       .nice();
 

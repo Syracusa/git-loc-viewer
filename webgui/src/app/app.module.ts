@@ -10,6 +10,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MainlistComponent } from './mainlist/mainlist.component';
 import { MainstatComponent } from './mainstat/mainstat.component';
 import { HttpClientModule } from '@angular/common/http';
+import {MatSelectModule} from '@angular/material/select';
+import { FormsModule } from '@angular/forms';
 
 @NgModule({
   declarations: [
@@ -26,6 +28,8 @@ import { HttpClientModule } from '@angular/common/http';
     MatExpansionModule,
     MatSlideToggleModule,
     MatToolbarModule,
+    MatSelectModule,
+    FormsModule 
   ],
   providers: [],
   bootstrap: [AppComponent]
