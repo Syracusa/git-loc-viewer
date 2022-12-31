@@ -15,7 +15,6 @@ import { Observable } from 'rxjs';
 export class AppComponent {
   title = 'LOC-counter';
 
-  data: any[] = [];
   asMoment: moment.Moment[] = [];
   datasize: number = 0;
   readDone: number = 0;
@@ -26,15 +25,18 @@ export class AppComponent {
       console.log(DataInfo);
 
     this.datasize = DataInfo['files'].length
+    let accuData: any[] = [];
+    
     for (let i = 0; i < this.datasize; i++) {
-      this.getJSON('assets/' + DataInfo['files'][i]).subscribe(data => {
+      let file: Observable<any> = this.http.get('assets/' + DataInfo['files'][i]);
+      file.subscribe(data => {
 
         if (this.VERBOSE) {
           console.log(DataInfo['files'][i].split('.')[0])
           console.log(data);
         }
 
-        this.data.push(data['All']);
+        accuData.push(data['All']);
 
         /* Check missing data */
         for (let eidx = 0; eidx < DataInfo['extensions'].length; eidx++) {
@@ -44,25 +46,19 @@ export class AppComponent {
           }
         }
 
-
         this.asMoment.push(moment(DataInfo['files'][i].split('.')[0]));
         this.readDone += 1;
 
         if (this.readDone == this.datasize) {
-          console.log(this.data);
           console.log(this.asMoment);
-          this.drawGraph("#chart1", "area");
-          this.drawGraph("#chart2", "bar");
+          this.drawGraph("#chart1", accuData, "area",  DataInfo['extensions']);
+          this.drawGraph("#chart2", accuData, "bar", DataInfo['extensions']);
         }
       });
     }
   }
 
-  constructor(private http: HttpClient) {}
-
-  public getJSON(filename: string): Observable<any> {
-    return this.http.get(filename);
-  }
+  constructor(private http: HttpClient) { }
 
   drawBarChart(
     selector: string,
@@ -103,14 +99,11 @@ export class AppComponent {
       });
   }
 
-  drawAreaChart(
-    selector: string,
-    stackdata: d3.Series<{ [key: string]: number; }, string>[],
-    xScale: d3.ScaleTime<number, number, never>,
-    yScale: d3.ScaleLinear<number, number, never>): void {
+  private buildAreaData(
+    stackdata: d3.Series<{ [key: string]: number; }, string>[])
+    : Array<[number, number]>[] {
 
     let newdata: Array<[number, number]>[] = [];
-
     for (let i = 0; i < stackdata.length; i++) {
       let mydata: Array<[number, number]> = [];
       for (let j = 0; j < stackdata[i].length; j++) {
@@ -118,9 +111,18 @@ export class AppComponent {
       }
       newdata.push(mydata);
     }
+    return newdata;
+  }
 
+  drawAreaChart(
+    selector: string,
+    stackdata: d3.Series<{ [key: string]: number; }, string>[],
+    xScale: d3.ScaleTime<number, number, never>,
+    yScale: d3.ScaleLinear<number, number, never>): void {
+
+    let newdata = this.buildAreaData(stackdata);
     var colors = d3.schemePaired;
-
+    
     var areaGen = d3.area()
       .x((d, i) => xScale(this.asMoment[i]))
       .y0((d, i) => yScale(d[0]))
@@ -134,39 +136,11 @@ export class AppComponent {
       .attr("d", (d, i) => areaGen(d));
   }
 
-  drawGraph(selector: string, kind: string): void {
-    /* Stack Data Generator */
-    var stackGen = d3.stack()
-      .keys(DataInfo.extensions);
-
-    /* Generate Data */
-    var stackedSeries = stackGen(this.data);
-
-    console.log(stackedSeries);
-
-    let maxDate = moment.max(this.asMoment).clone();
-    let minDate = moment.min(this.asMoment).clone();
-
-    if (kind == "bar") {
-      minDate.add(-6, 'hours');
-      maxDate.add(6, 'hours');
-    }
-
-    /* Scale */
-    var xScale = d3.scaleTime()
-      .domain([minDate, maxDate])
-      .range([50, 600]);
-
-    var yScale = d3.scaleLinear()
-      .domain([0, 20000])
-      .range([450, 50])
-      .nice();
-
-    if (kind == "bar") {
-      this.drawBarChart(selector, stackedSeries, xScale, yScale);
-    } else {
-      this.drawAreaChart(selector, stackedSeries, xScale, yScale);
-    }
+  private drawAxes(
+    selector: string,
+    xScale: d3.ScaleTime<number, number, never>,
+    yScale: d3.ScaleLinear<number, number, never>)
+    : void {
 
     /* Draw Axes */
     let useCustomFmt = 0;
@@ -192,6 +166,46 @@ export class AppComponent {
       .append("g")
       .call(yAxis)
       .attr("transform", "translate(" + 600 + ", " + 0 + ")");
+
+  }
+
+  drawGraph(selector: string, data:any[], kind: string, keys: string[]): void {
+    /* Stack Data Generator */
+    var stackGen = d3.stack().keys(keys);
+
+    /* Generate Data */
+    var stackedSeries = stackGen(data);
+
+    console.log(stackedSeries);
+
+    let maxDate = moment.max(this.asMoment).clone();
+    let minDate = moment.min(this.asMoment).clone();
+
+    if (kind == "bar") {
+      minDate.add(-6, 'hours');
+      maxDate.add(6, 'hours');
+    }
+
+    /* Scale */
+    var xScale = d3.scaleTime()
+      .domain([minDate, maxDate])
+      .range([50, 600]);
+
+    var yScale = d3.scaleLinear()
+      // .domain([0, 20000])
+      .domain([0, 20000])
+      .range([450, 50])
+      .nice();
+
+    /* Graph */
+    if (kind == "bar") {
+      this.drawBarChart(selector, stackedSeries, xScale, yScale);
+    } else {
+      this.drawAreaChart(selector, stackedSeries, xScale, yScale);
+    }
+
+    /* Axes */
+    this.drawAxes(selector, xScale, yScale);
 
   }
 
