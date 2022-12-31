@@ -116,13 +116,8 @@ export class AppComponent {
             repoDatum[ext] = 0;
           }
         }
-
-
         repoData.push(repoDatum);
       }
-
-
-
     }
     this.drawGraph(this.g1, "#chart1", repoData, "area", this.dataMetaInfo['extensions'], width, height);
     this.drawGraph(this.g2, "#chart2", repoData, "bar", this.dataMetaInfo['extensions'], width, height);
@@ -171,9 +166,9 @@ export class AppComponent {
 
     /* Graph */
     if (kind == "bar") {
-      this.drawBarChart(selector, stackedSeries, xScale, yScale);
+      this.drawBarChart(g, selector, stackedSeries, xScale, yScale);
     } else {
-      this.drawAreaChart(selector, stackedSeries, xScale, yScale);
+      this.drawAreaChart(g, selector, stackedSeries, xScale, yScale);
     }
 
     /* Axes */
@@ -181,6 +176,7 @@ export class AppComponent {
   }
 
   drawBarChart(
+    g: GraphElem,
     selector: string,
     stackdata: d3.Series<{ [key: string]: number; }, string>[],
     xScale: any,
@@ -191,32 +187,60 @@ export class AppComponent {
     /* Draw Bars */
     let barWidth = 20;
 
-    d3.select(selector)
-      .selectAll("g.bars")
-      .data(stackdata)
-      .enter()
-      .append("g")
-      .classed('bars', true)
-      .style("fill", function (d, i) {
-        return colors[i];
-      })
-      .selectAll('rect')
-      .data(function (d) {
-        return d;
-      })
-      .join('rect')
-      .attr("x", (d, i) => {
-        return xScale(d.data['date']) - (barWidth / 2);
-      })
-      .attr("y", function (d, i) {
-        return yScale(d[1]);
-      })
-      .attr("height", function (d) {
-        return yScale(d[0]) - yScale(d[1]);
-      })
-      .attr("width", function (d) {
-        return barWidth;
-      });
+
+    if (g.graph == undefined) {
+      g.graph = d3.select(selector)
+        .selectAll("g.bars")
+        .data(stackdata)
+        .enter()
+        .append("g")
+        .classed('bars', true)
+        .style("fill", function (d, i) {
+          return colors[i];
+        })
+        .selectAll('rect')
+        .data(function (d) {
+          return d;
+        })
+        .join('rect')
+        .attr("x", (d, i) => {
+          return xScale(d.data['date']) - (barWidth / 2);
+        })
+        .attr("y", function (d, i) {
+          return yScale(d[1]);
+        })
+        .attr("height", function (d) {
+          return yScale(d[0]) - yScale(d[1]);
+        })
+        .attr("width", function (d) {
+          return barWidth;
+        });
+    } else {
+      g.graph = d3.select(selector)
+        .selectAll("g.bars")
+        .data(stackdata)
+        .classed('bars', true)
+        .style("fill", function (d, i) {
+          return colors[i];
+        })
+        .selectAll('rect')
+        .data(function (d) {
+          return d;
+        })
+        .join('rect')
+        .attr("x", (d, i) => {
+          return xScale(d.data['date']) - (barWidth / 2);
+        })
+        .attr("y", function (d, i) {
+          return yScale(d[1]);
+        })
+        .attr("height", function (d) {
+          return yScale(d[0]) - yScale(d[1]);
+        })
+        .attr("width", function (d) {
+          return barWidth;
+        });
+    }
   }
 
   private buildAreaData(
@@ -235,6 +259,7 @@ export class AppComponent {
   }
 
   drawAreaChart(
+    g: GraphElem,
     selector: string,
     stackdata: d3.Series<{ [key: string]: number; }, string>[],
     xScale: d3.ScaleTime<number, number, never>,
@@ -249,7 +274,7 @@ export class AppComponent {
       .y0((d, i) => yScale(d[0]))
       .y1((d, i) => yScale(d[1]));
 
-    d3.select(selector)
+    g.graph = d3.select(selector)
       .selectAll("path")
       .data(newdata)
       .join("path")
