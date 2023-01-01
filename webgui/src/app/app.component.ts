@@ -17,9 +17,15 @@ interface LocDataWithTime {
 }
 
 interface GraphElem {
-  graph: any;
-  xaxis: any;
-  yaxis: any;
+  selector : any;
+  height : number;
+  width : number;
+
+  graph ?: any;
+  xaxis ?: any;
+  yaxis ?: any;
+  legend ?: any;
+  labels ?: any;
 }
 
 @Component({
@@ -32,7 +38,6 @@ export class AppComponent {
   VERBOSE = 1;
 
   selectedRepo: string = "All";
-
   dataFileNum: number = 0;
 
   repoSet = new Set<string>;
@@ -40,8 +45,8 @@ export class AppComponent {
   parsedFileNum = 0;
   dataMetaInfo: any;
 
-  g1: GraphElem = { graph: undefined, xaxis: undefined, yaxis: undefined };
-  g2: GraphElem = { graph: undefined, xaxis: undefined, yaxis: undefined };
+  g1: GraphElem = { selector:"#chart1", width: 600, height: 300};
+  g2: GraphElem = { selector:"#chart2", width: 600, height: 300 };
 
   ngOnInit(): void {
     let file: Observable<any> = this.http.get('../assets/datainfo.json');
@@ -56,14 +61,14 @@ export class AppComponent {
 
   onOptionSelected(event: MatSelectChange) {
     console.log(event.value);
-    this.drawRepoGraph(event.value as string, 600, 300);
+    this.drawRepoGraph(event.value as string);
   }
 
   cbDataRecvDone(ctx: AppComponent): void {
     ctx.locData.sort(function (a, b) { return a.date.unix() - b.date.unix(); });
     console.log("locdata", ctx.locData);
     ctx.buildRepoSet();
-    ctx.drawRepoGraph('All', 600, 300);
+    ctx.drawRepoGraph('All');
   }
 
   getDataFromJSON(cb: (ctx: AppComponent) => void): void {
@@ -103,7 +108,7 @@ export class AppComponent {
       console.log("reposet", this.repoSet);
   }
 
-  drawRepoGraph(repoName: string, width: number, height: number): void {
+  drawRepoGraph(repoName: string): void {
     let repoData: any[] = [];
     for (let i = 0; i < this.locData.length; i++) {
       let repoDatum = this.locData[i].locDatum.get(repoName);
@@ -119,17 +124,14 @@ export class AppComponent {
         repoData.push(repoDatum);
       }
     }
-    this.drawGraph(this.g1, "#chart1", repoData, "area", this.dataMetaInfo['extensions'], width, height);
-    this.drawGraph(this.g2, "#chart2", repoData, "bar", this.dataMetaInfo['extensions'], width, height);
+    this.drawGraph(this.g1, repoData, "area", this.dataMetaInfo['extensions']);
+    this.drawGraph(this.g2, repoData, "bar", this.dataMetaInfo['extensions']);
   }
 
   drawGraph(g: GraphElem,
-    selector: string,
     data: any[],
     kind: string,
-    keys: string[],
-    width: number,
-    height: number)
+    keys: string[])
     : void {
     /* Stack Data Generator */
     var stackGen = d3.stack().keys(keys);
@@ -140,7 +142,6 @@ export class AppComponent {
 
     console.log("stackedSeries", stackedSeries);
     console.log(datearr);
-
 
     let datalen = stackedSeries.length;
     let datumlen = stackedSeries[0].length;
@@ -157,27 +158,28 @@ export class AppComponent {
     /* Scale */
     var xScale = d3.scaleTime()
       .domain([minDate, maxDate])
-      .range([50, width - 50]);
+      .range([50, g.width - 50]);
 
     var yScale = d3.scaleLinear()
       .domain([0, ymax])
-      .range([height - 50, 50])
+      .range([g.height - 50, 50])
       .nice();
 
     /* Graph */
     if (kind == "bar") {
-      this.drawBarChart(g, selector, stackedSeries, xScale, yScale);
+      this.drawBarChart(g, stackedSeries, xScale, yScale);
     } else {
-      this.drawAreaChart(g, selector, stackedSeries, xScale, yScale);
+      this.drawAreaChart(g, stackedSeries, xScale, yScale);
     }
 
     /* Axes */
-    this.drawAxes(g, selector, xScale, yScale, width, height);
+    this.drawAxes(g, xScale, yScale);
+
+    this.drawLegend(g);
   }
 
   drawBarChart(
     g: GraphElem,
-    selector: string,
     stackdata: d3.Series<{ [key: string]: number; }, string>[],
     xScale: any,
     yScale: any): void {
@@ -189,7 +191,7 @@ export class AppComponent {
 
 
     if (g.graph == undefined) {
-      g.graph = d3.select(selector)
+      g.graph = d3.select(g.selector)
         .selectAll("g.bars")
         .data(stackdata)
         .enter()
@@ -216,7 +218,7 @@ export class AppComponent {
           return barWidth;
         });
     } else {
-      g.graph = d3.select(selector)
+      g.graph = d3.select(g.selector)
         .selectAll("g.bars")
         .data(stackdata)
         .classed('bars', true)
@@ -260,7 +262,6 @@ export class AppComponent {
 
   drawAreaChart(
     g: GraphElem,
-    selector: string,
     stackdata: d3.Series<{ [key: string]: number; }, string>[],
     xScale: d3.ScaleTime<number, number, never>,
     yScale: d3.ScaleLinear<number, number, never>): void {
@@ -274,21 +275,20 @@ export class AppComponent {
       .y0((d, i) => yScale(d[0]))
       .y1((d, i) => yScale(d[1]));
 
-    g.graph = d3.select(selector)
+    g.graph = d3.select(g.selector)
       .selectAll("path")
       .data(newdata)
       .join("path")
       .attr("fill", function (d, i) { return colors[i]; })
-      .attr("d", (d, i) => areaGen(d));
+      .attr("d", (d, i) => areaGen(d))
+      .attr("text-anchor", "middle")
+      .on('mouseover', function(d, i) { /* TBD */});
   }
 
   private drawAxes(
     g: GraphElem,
-    selector: string,
     xScale: d3.ScaleTime<number, number, never>,
-    yScale: d3.ScaleLinear<number, number, never>,
-    width: number,
-    height: number)
+    yScale: d3.ScaleLinear<number, number, never>,)
     : void {
 
     /* Draw Axes */
@@ -297,20 +297,57 @@ export class AppComponent {
 
     if (g.xaxis == undefined) {
       console.log("xappend");
-      g.xaxis = d3.select(selector)
+      g.xaxis = d3.select(g.selector)
         .append("g")
         .call(xAxis)
-        .attr("transform", "translate(" + 0 + ", " + (height - 50) + ")");
+        .attr("transform", "translate(" + 0 + ", " + (g.height - 50) + ")");
     } else {
       g.xaxis.call(xAxis);
     }
     if (g.yaxis == undefined) {
-      g.yaxis = d3.select(selector)
+      g.yaxis = d3.select(g.selector)
         .append("g")
         .call(yAxis)
-        .attr("transform", "translate(" + (width - 50) + ", " + 0 + ")");
+        .attr("transform", "translate(" + (g.width - 50) + ", " + 0 + ")");
     } else {
       g.yaxis.call(yAxis);
+    }
+  }
+
+  private drawLegend(g: GraphElem): void{
+    let size = 5;
+    var colors = d3.schemePaired;
+
+    let catnum = this.dataMetaInfo['extensions'].length;
+
+    if (g.legend == undefined){
+      g.legend = d3.select(g.selector)
+      .selectAll(".legendRect")
+      .data(this.dataMetaInfo['extensions'])
+      .enter()
+      .append("rect")
+      .classed("regendRect", true)
+      .attr("x", g.width)
+      .attr("y", function(d,i){ return 30 + (catnum - i)*(size+5)})
+      .attr("width", size)
+      .attr("height", size)
+      .style("fill", function(d, i){ return colors[i];})
+    }
+    
+    if (g.labels == undefined){
+      g.labels = d3.select(g.selector)
+      .selectAll(".legendLabel")
+      .data(this.dataMetaInfo['extensions'])
+      .enter()
+      .append("text")
+      .classed("legendLabel", true)
+        .attr("x", g.width + size * 1.2)
+        .attr("y", function(d,i){ return 30 + (catnum - i)*(size+5) + (size/2)})
+        .style("fill", function(d, i){ return colors[i]; })
+        .style("font-size", "10px")
+        .text(function(d, i) {return d as string;})
+        .attr("text-anchor", "left")
+        .style("alignment-baseline", "middle");
     }
   }
 }
