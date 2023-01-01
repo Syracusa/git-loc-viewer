@@ -11,6 +11,7 @@ Count line of code in your git repositories.
 ***
 
 + Output sample
+![Alt text](/img/app_sample.png?raw=true "Main image")
 ```
 {
     "All": {
