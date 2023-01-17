@@ -5,7 +5,7 @@ import json
 DO_VERBOSE = 0
 
 # Exclude some directories and files by their name
-exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments'])
+exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments', 'libwebsockets', 'mbedtls'])
 exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs'])
 
 # File extensions to count
