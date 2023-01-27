@@ -16,6 +16,7 @@ projects+=("time-wheel")
 projects+=("CodingTest")
 projects+=("git-loc-viewer")
 projects+=("sy-visual-logger")
+projects+=("sy-gstreamer-example")
 
 cd projects
 for prj in ${projects[@]}; do
