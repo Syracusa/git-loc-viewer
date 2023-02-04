@@ -6,7 +6,7 @@ DO_VERBOSE = 0
 
 # Exclude some directories and files by their name
 exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments', 'libwebsockets', 'mbedtls'])
-exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs'])
+exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs', 'polyfills.ts', 'test.ts'])
 
 # File extensions to count
 extensions = ('.c', '.h', '.cpp', '.ts', '.js', '.html', '.py', '.sh', '.rs', '.md', '.cs')
