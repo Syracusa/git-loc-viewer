@@ -5,8 +5,8 @@ import json
 DO_VERBOSE = 0
 
 # Exclude some directories and files by their name
-exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments', 'libwebsockets', 'mbedtls'])
-exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs', 'polyfills.ts', 'test.ts'])
+exclude_dirs =  set(['build', 'env', '.vscode', 'node_modules', 'ext', 'environments', 'libwebsockets', 'mbedtls', 'cjson'])
+exclude_files =  set(['projects', 'karma.conf.js', 'MainForm.Designer.cs', 'polyfills.ts', 'test.ts', 'rbtree.c', 'rbtree.h'])
 
 # File extensions to count
 extensions = ('.c', '.h', '.cpp', '.ts', '.js', '.html', '.py', '.sh', '.rs', '.md', '.cs')
